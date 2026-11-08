@@ -89,6 +89,9 @@ powershell -ExecutionPolicy Bypass -File setup.ps1 -Proxy http://127.0.0.1:7890
 
 手机连**同一个 Wi-Fi / 热点**，打开即可（口令已带在链接里）。首次启动会自动生成口令并写进 `overlay\config.json`，同时自动添加防火墙放行规则。
 
+> 仓库里提交的 `overlay\config.json` 口令是空的；你本机跑过之后它会变成 6 位数字，
+> 属于本机配置，`git status` 里看到改动忽略即可（别提交）。
+
 不想开局域网访问：把 `overlay\config.json` 里 `lan.enabled` 改成 `false`。
 
 ## 目录结构
