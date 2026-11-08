@@ -112,6 +112,18 @@
 
 <div class="card">
   <div class="head">
+    <span class="t">直播间地址</span>
+    <span class="sp"></span>
+    <button id="room-save" class="primary">保存并重启 songbot</button>
+  </div>
+  <div class="enq">
+    <input id="room-url" placeholder="https://live.douyin.com/123456789" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="sub" style="margin-top:8px">从抖音网页版/直播伴侣复制；填纯数字房间号也行。保存后会写进 songbot\config.ini 并重启弹幕监听。</div>
+</div>
+
+<div class="card">
+  <div class="head">
     <span class="t">弹幕监听（songbot）</span>
     <span class="sp"></span>
     <button id="sb-toggle" class="primary">开始监听</button>
@@ -205,8 +217,15 @@ function fillSettings(rules){
   }
 }
 
+function fillRoomUrl(room){
+  const el = $('room-url');
+  if (!el || document.activeElement === el) return;
+  el.value = room || '';
+}
+
 function render(s){
   fillSettings(s.rules || {});
+  fillRoomUrl(s.room_url || '');
   const conn = s.connector || {};
   const alive = conn.alive ? '<span class="ok">运行中</span>' : '<span class="bad">未运行</span>';
   const sub = conn.subscribed ? ' · 事件订阅' : ' · 轮询';
@@ -282,6 +301,8 @@ $('set-save').onclick = () => action('settings', '', {
   duplicate_window_seconds: Number($('set-dup').value) * 60,
   expire_seconds: Number($('set-exp').value) * 60
 });
+$('room-save').onclick = () => action('room-url', '', { room_url: $('room-url').value.trim() });
+$('room-url').addEventListener('keydown', e => { if (e.key === 'Enter') $('room-save').click(); });
 
 const _render = render;
 window.render = s => { window._paused = s.paused; _render(s); };

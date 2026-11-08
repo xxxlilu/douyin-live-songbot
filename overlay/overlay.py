@@ -505,7 +505,83 @@ class Scheduler:
             return self.songbot.stop()
         if name == "songbot-restart":
             return self.songbot.restart()
+        if name == "room-url":
+            return self._save_room_url(str(extra.get("room_url") or ""))
         return False, f"未知动作：{name}"
+
+    # ---------- 直播间地址 ----------
+    def _songbot_config(self) -> Path:
+        cwd = self.cfg.get("songbot", {}).get("cwd") or "..\\songbot"
+        return (HERE / cwd / "config.ini").resolve()
+
+    def _read_room_url(self) -> str:
+        path = self._songbot_config()
+        try:
+            with open(path, "r", encoding="utf-8", newline="") as fh:
+                text = fh.read()
+        except OSError:
+            return ""
+        for line in text.splitlines():
+            if re.match(r"\s*room_url\s*=", line):
+                return line.split("=", 1)[1].strip()
+        return ""
+
+    def _save_room_url(self, raw: str) -> tuple[bool, str]:
+        url = raw.strip()
+        if not url:
+            return False, "直播间地址不能为空"
+        if re.fullmatch(r"\d+", url):
+            url = f"https://live.douyin.com/{url}"
+        elif url.startswith("live.douyin.com/"):
+            url = "https://" + url
+        elif not url.startswith("http"):
+            return False, f"看不懂这个地址：{url}"
+
+        match = re.match(r"^https?://live\.douyin\.com/(\d+)", url)
+        if not match:
+            return False, "地址应该是 https://live.douyin.com/一串数字"
+        url = f"https://live.douyin.com/{match.group(1)}"
+
+        path = self._songbot_config()
+        if not path.is_file():
+            return False, f"找不到 {path}"
+        try:
+            with open(path, "r", encoding="utf-8", newline="") as fh:
+                text = fh.read()
+        except OSError as exc:
+            return False, f"读不了配置：{exc}"
+
+        lines = text.splitlines(keepends=True)
+        replaced = False
+        for i, line in enumerate(lines):
+            if re.match(r"\s*room_url\s*=", line):
+                ending = line[len(line.rstrip("\r\n")):]
+                lines[i] = f"room_url = {url}{ending}"
+                replaced = True
+                break
+        if not replaced:
+            for i, line in enumerate(lines):
+                if line.strip() == "[general]":
+                    ending = line[len(line.rstrip("\r\n")):] or "\n"
+                    lines.insert(i + 1, f"room_url = {url}{ending}")
+                    replaced = True
+                    break
+        if not replaced:
+            return False, "config.ini 里没有 [general] 段"
+
+        try:
+            with open(path, "w", encoding="utf-8", newline="") as fh:
+                fh.writelines(lines)
+        except OSError as exc:
+            return False, f"写配置失败：{exc}"
+
+        log(f"[设置] 直播间地址改为 {url}")
+        if self.songbot.running():
+            ok, message = self.songbot.restart()
+            if ok:
+                return True, f"已保存，songbot 重启中（{url}）"
+            return False, f"已保存，但重启失败：{message}"
+        return True, f"已保存（{url}），songbot 当前没在跑"
 
     def _save_settings(self, extra: dict) -> tuple[bool, str]:
         """面板上调规则：写回 config.json 并立即生效。"""
@@ -669,6 +745,7 @@ class Scheduler:
             "next": {"title": nxt.get("title"), "artist": nxt.get("artist")},
             "rejects": self.store.rejects[-10:],
             "rules": dict(self.store.rules),
+            "room_url": self._read_room_url(),
             "lan": bool(self.cfg["lan"].get("enabled")),
             "token": self.cfg["lan"].get("token") if self.cfg["lan"].get("enabled") else "",
             "lan_url": LAN_URL,
