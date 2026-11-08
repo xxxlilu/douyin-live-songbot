@@ -1,0 +1,26 @@
+# 依赖与虚拟环境（体积大、含本机路径）
+songbot/.venv/
+songbot/vendor/
+songbot/tools/awoo-connector/
+
+# 运行时产物
+songbot/logs/
+songbot/.tmp/
+songbot/.pip-cache/
+overlay/queue.json
+overlay/queue.inbox.jsonl
+overlay/queue.json.tmp
+overlay/*.out
+overlay/*.err
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 本机配置 / 日志
+songbot/config.live.ini
+*.log
+
+# 安装脚本的 pip 缓存/临时目录
+.cache/

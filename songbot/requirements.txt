@@ -1,0 +1,11 @@
+# 主程序只需要 requests（搜歌）。
+requests>=2.31
+
+# 下面是 [netease] mode = uia（界面自动化兜底）才需要的，默认 ipc 模式用不到。
+# uiautomation>=2.0.20
+# comtypes>=1.4.4
+
+# 抖音弹幕库 DouyinLiveWebFetcher 自己的依赖：
+# websocket-client>=1.7
+# protobuf>=4.25
+# PyExecJS>=1.5.1

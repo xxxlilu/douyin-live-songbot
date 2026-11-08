@@ -1,0 +1,8 @@
+logs/
+vendor/
+__pycache__/
+*.pyc
+.venv/
+.tmp/
+.pip-cache/
+config.live.ini

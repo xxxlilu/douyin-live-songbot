@@ -1,0 +1,31 @@
+{
+  "port": 8790,
+  "rows": 5,
+  "title": "接下来",
+  "open_browser": true,
+  "open_admin": true,
+  "playing_list": "%LOCALAPPDATA%\\Netease\\CloudMusic\\webdata\\file\\playingList",
+  "connector": "..\\songbot\\tools\\awoo-connector\\extracted\\Awoo.Connector.Netease.exe",
+  "queue_file": "queue.json",
+  "inbox_file": "queue.inbox.jsonl",
+  "rules": {
+    "cooldown_seconds": 10.0,
+    "max_pending_per_user": 5,
+    "duplicate_window_seconds": 300.0,
+    "expire_seconds": 1800.0
+  },
+  "lan": {
+    "enabled": true,
+    "token": ""
+  },
+  "songbot": {
+    "auto_start": true,
+    "python": "..\\songbot\\.venv\\Scripts\\python.exe",
+    "cwd": "..\\songbot",
+    "args": [
+      "-m",
+      "songbot",
+      "run"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>需要口令</title>
+<style>
+  body{ background:#12151b; color:#e9edf3; font-family:"Microsoft YaHei UI",system-ui,sans-serif;
+        display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+  form{ background:#171b23; border:1px solid #262c38; border-radius:14px; padding:26px 28px; width:300px; }
+  h1{ font-size:16px; margin:0 0 14px; }
+  p{ color:#8b95a7; font-size:12px; margin:0 0 14px; }
+  input{ width:100%; padding:9px 12px; border-radius:8px; border:1px solid #2b3341;
+         background:#0f1319; color:#e9edf3; font-size:14px; letter-spacing:2px; }
+  button{ margin-top:12px; width:100%; padding:9px; border-radius:8px; border:1px solid #2b3341;
+          background:#2b3444; color:#e9edf3; font-size:14px; cursor:pointer; }
+</style>
+</head>
+<body>
+<form onsubmit="go(event)">
+  <h1>点歌控制台</h1>
+  <p>请输入 6 位口令（在启动窗口里，或 config.json 的 lan.token）</p>
+  <input id="t" maxlength="6" inputmode="numeric" autofocus>
+  <button type="submit">进入</button>
+</form>
+<script>
+function go(e){
+  e.preventDefault();
+  const t = document.getElementById('t').value.trim();
+  if (/^\d{6}$/.test(t)) location.href = '/admin?token=' + encodeURIComponent(t);
+  else alert('口令是 6 位数字');
+}
+</script>
+</body>
+</html>

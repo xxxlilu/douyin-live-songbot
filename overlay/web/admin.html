@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>点歌控制台</title>
+<style>
+  :root{
+    --bg:#12151b; --panel:#171b23; --line:#262c38; --fg:#e9edf3; --dim:#8b95a7;
+    --accent:#ffd166; --ok:#5ad19a; --bad:#ff7b72; --btn:#232a36;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--fg); font-family:"Microsoft YaHei UI",system-ui,sans-serif;
+        padding:18px; max-width:920px; margin:0 auto; }
+  h1{ font-size:18px; margin-bottom:12px; }
+  .bar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  button{ background:var(--btn); color:var(--fg); border:1px solid var(--line); border-radius:8px;
+          padding:8px 14px; font-size:13px; cursor:pointer; }
+  button:hover{ border-color:#3a4353; }
+  button.primary{ background:#2b3444; }
+  button.danger{ color:var(--bad); border-color:#40282a; }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  .status{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px;
+           background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px;
+           margin-bottom:14px; font-size:13px; }
+  .status .k{ color:var(--dim); font-size:11px; margin-bottom:2px; }
+  .status .v{ word-break:break-all; }
+  .ok{ color:var(--ok); } .bad{ color:var(--bad); }
+  table{ width:100%; border-collapse:collapse; font-size:13px; background:var(--panel);
+         border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th{ color:var(--dim); font-weight:500; font-size:11px; }
+  tr:last-child td{ border-bottom:none; }
+  td .sub{ color:var(--dim); font-size:11px; }
+  .tag{ font-size:10px; border-radius:999px; padding:1px 7px; border:1px solid var(--line); color:var(--dim); }
+  .tag.head{ color:var(--accent); border-color:#4a3d1e; }
+  .tag.playing{ color:var(--ok); border-color:#1f4a37; }
+  .rejects{ margin-top:14px; font-size:11px; color:var(--dim); white-space:pre-wrap; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:14px; }
+  .card .head{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .card .head .t{ font-size:13px; font-weight:600; }
+  .card .head .sp{ flex:1; }
+  .enq{ display:flex; gap:8px; flex-wrap:wrap; }
+  .enq input{ flex:1 1 200px; background:#0f1319; border:1px solid #2b3341; border-radius:8px;
+              color:var(--fg); padding:8px 10px; font-size:13px; }
+  .setgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  .setgrid label{ font-size:11px; color:var(--dim); display:flex; flex-direction:column; gap:4px; }
+  .setgrid input{ background:#0f1319; border:1px solid #2b3341; border-radius:8px;
+                  color:var(--fg); padding:7px 9px; font-size:13px; }
+  .card .row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; font-size:13px; }
+  .card details{ margin-top:10px; }
+  .card summary{ font-size:11px; color:var(--dim); cursor:pointer; }
+  .card pre{ margin-top:8px; max-height:160px; overflow:auto; font-size:11px; line-height:1.5;
+             color:var(--dim); background:#0f1319; border-radius:8px; padding:8px; white-space:pre-wrap; }
+  .toastline{ position:fixed; left:50%; transform:translateX(-50%); bottom:20px;
+              background:#22303f; border:1px solid var(--line); border-radius:10px;
+              padding:8px 16px; font-size:13px; opacity:0; transition:opacity .2s; }
+  .toastline.show{ opacity:1; }
+</style>
+</head>
+<body>
+<h1>点歌控制台</h1>
+
+<div class="bar">
+  <button id="btn-pause" class="primary">暂停接单</button>
+  <button id="btn-skip" class="danger">跳过当前</button>
+  <button id="btn-clear" class="danger">清空队列</button>
+  <button id="btn-refresh">刷新状态</button>
+</div>
+
+<div class="card">
+  <div class="head">
+    <span class="t">规则设置</span>
+    <span class="sp"></span>
+    <button id="set-save" class="primary">保存</button>
+  </div>
+  <div class="setgrid">
+    <label>同人冷却（秒）
+      <input id="set-cooldown" type="number" min="0" max="3600" step="1">
+    </label>
+    <label>每人同时最多排队（首）
+      <input id="set-max" type="number" min="1" max="100" step="1">
+    </label>
+    <label>同一首歌不重复（分钟）
+      <input id="set-dup" type="number" min="0" max="1440" step="1">
+    </label>
+    <label>点歌过期（分钟）
+      <input id="set-exp" type="number" min="1" max="1440" step="1">
+    </label>
+  </div>
+  <div class="sub" style="margin-top:8px">保存后立即生效，并写回 config.json；主播手动点歌不受冷却和每人上限限制。</div>
+</div>
+
+<div class="card">
+  <div class="head">
+    <span class="t">手动点歌</span>
+    <span class="sp"></span>
+    <span class="sub" id="lan-hint"></span>
+  </div>
+  <div class="enq">
+    <input id="enq-song" placeholder="歌名，如：18" autocomplete="off">
+    <input id="enq-artist" placeholder="歌手（可选），如：Miles Away" autocomplete="off">
+  </div>
+  <div class="enq" style="margin-top:8px">
+    <input id="enq-link" placeholder="或直接粘贴网易云歌曲链接（优先使用），music.163.com/song?id=..." autocomplete="off">
+  </div>
+  <div class="enq" style="margin-top:8px">
+    <input id="enq-user" placeholder="点歌人（默认：主播）" value="主播" style="flex:0 1 180px">
+    <button id="enq-go" class="primary">加入队列</button>
+    <span class="sub">粘贴链接时会精确按那首歌入队，不再靠搜索猜</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="head">
+    <span class="t">弹幕监听（songbot）</span>
+    <span class="sp"></span>
+    <button id="sb-toggle" class="primary">开始监听</button>
+    <button id="sb-restart">重启</button>
+  </div>
+  <div class="row">
+    <div><div class="k">状态</div><div class="v" id="sb-state">—</div></div>
+    <div><div class="k">最后一条点歌</div><div class="v" id="sb-last">—</div></div>
+    <div><div class="k">本次累计入队</div><div class="v" id="sb-count">0</div></div>
+    <div><div class="k">进程</div><div class="v" id="sb-pid">—</div></div>
+  </div>
+  <details>
+    <summary>最近日志</summary>
+    <pre id="sb-log"></pre>
+  </details>
+</div>
+
+<div class="status">
+  <div><div class="k">连接器</div><div class="v" id="s-conn">—</div></div>
+  <div><div class="k">正在播放</div><div class="v" id="s-current">—</div></div>
+  <div><div class="k">网易云下一首</div><div class="v" id="s-next">—</div></div>
+  <div><div class="k">接单状态</div><div class="v" id="s-paused">—</div></div>
+</div>
+
+<table>
+  <thead><tr><th>#</th><th>观众</th><th>歌曲</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+  <tbody id="rows"><tr><td colspan="6" class="sub">加载中…</td></tr></tbody>
+</table>
+
+<div class="rejects" id="rejects"></div>
+<div class="toastline" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let token = new URLSearchParams(location.search).get('token');
+if (token) localStorage.setItem('n5token', token);
+token = token || localStorage.getItem('n5token') || '';
+const authQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+
+function toast(msg){
+  const el = $('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+function esc(s){ return (s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+async function action(name, id, extra){
+  const resp = await fetch('/api/action' + authQuery, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(Object.assign({action: name, id: id || ''}, extra || {}))
+  });
+  if (resp.status === 401) { toast('口令失效，请用带 token 的链接'); return; }
+  const data = await resp.json();
+  toast(data.message || (data.ok ? '完成' : '失败'));
+  if (data.state) render(data.state);
+  return data;
+}
+
+async function enqueue(){
+  const link = $('enq-link').value.trim();
+  const song = $('enq-song').value.trim();
+  if (!link && !song) { (link ? $('enq-link') : $('enq-song')).focus(); return; }
+  const data = await action('enqueue', '', {
+    song: song,
+    artist: $('enq-artist').value.trim(),
+    link: link,
+    user: ($('enq-user').value.trim() || '主播')
+  });
+  if (data && data.ok) {
+    $('enq-song').value = '';
+    $('enq-artist').value = '';
+    $('enq-link').value = '';
+    $('enq-song').focus();
+  }
+}
+
+function fillSettings(rules){
+  const map = [
+    ['set-cooldown', 'cooldown_seconds', 1],
+    ['set-max', 'max_pending_per_user', 1],
+    ['set-dup', 'duplicate_window_seconds', 60],
+    ['set-exp', 'expire_seconds', 60],
+  ];
+  for (const [id, key, div] of map) {
+    const el = $(id);
+    if (!el || document.activeElement === el) continue;
+    const value = rules[key];
+    if (value === undefined) continue;
+    el.value = Math.round(value / div);
+  }
+}
+
+function render(s){
+  fillSettings(s.rules || {});
+  const conn = s.connector || {};
+  const alive = conn.alive ? '<span class="ok">运行中</span>' : '<span class="bad">未运行</span>';
+  const sub = conn.subscribed ? ' · 事件订阅' : ' · 轮询';
+  $('s-conn').innerHTML = `${alive}${sub} · 事件 ${conn.events || 0}`;
+
+  $('lan-hint').textContent = s.lan_url ? ('手机访问：' + s.lan_url) : '';
+
+  const sb = s.songbot || {};
+  const sbState = !sb.running
+    ? '<span class="bad">● 未启动</span>'
+    : (sb.connected ? '<span class="ok">● 监听中</span>' : '<span class="bad">● 已启动，弹幕未连上</span>');
+  $('sb-state').innerHTML = sbState + (sb.error ? ` <span class="sub">（${esc(sb.error)}）</span>` : '');
+  $('sb-last').textContent = sb.last_enqueue_at || '—';
+  $('sb-count').textContent = sb.enqueued || 0;
+  $('sb-pid').textContent = sb.pid ? ('pid ' + sb.pid) : '—';
+  $('sb-toggle').textContent = sb.running ? '停止监听' : '开始监听';
+  $('sb-toggle').dataset.on = sb.running ? '1' : '0';
+  $('sb-log').textContent = (sb.lines || []).join('\n');
+  $('s-current').textContent = s.current && s.current.title
+    ? `${s.current.title}${s.current.artist ? ' - ' + s.current.artist : ''}` : '—';
+  $('s-next').textContent = s.next && s.next.title
+    ? `${s.next.title}${s.next.artist ? ' - ' + s.next.artist : ''}` : '—';
+  $('s-paused').innerHTML = s.paused ? '<span class="bad">已暂停接单</span>' : '<span class="ok">接单中</span>';
+  $('btn-pause').textContent = s.paused ? '恢复接单' : '暂停接单';
+
+  const rows = $('rows');
+  if (!s.queue || !s.queue.length){
+    rows.innerHTML = '<tr><td colspan="6" class="sub">队列是空的</td></tr>';
+  } else {
+    rows.innerHTML = s.queue.map((e, i) => {
+      const canPin = !e.is_head;
+      const canDel = !e.is_head && !e.inserted;
+      const tag = e.is_head
+        ? '<span class="tag head">队头·已排队</span>'
+        : '<span class="tag">排队中</span>';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${esc(e.user)}</td>
+        <td>${esc(e.song)}<div class="sub">${esc(e.artist || '')}${e.note ? ' · ' + esc(e.note) : ''}</div></td>
+        <td>${tag}</td>
+        <td class="sub">${esc(e.at)}</td>
+        <td>
+          <button ${canPin ? '' : 'disabled'} onclick="action('pin','${e.id}')">置顶</button>
+          <button class="danger" ${canDel ? '' : 'disabled'} onclick="action('remove','${e.id}')">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  $('rejects').textContent = (s.rejects && s.rejects.length)
+    ? '最近被丢弃的点歌：\n' + s.rejects.map(r => '· ' + r).join('\n') : '';
+}
+
+async function poll(){
+  try{
+    const resp = await fetch('/api/state' + authQuery, {cache:'no-store'});
+    if (resp.status === 401){ $('rows').innerHTML = '<tr><td colspan="6" class="sub">需要口令：在地址后加 ?token=你的口令</td></tr>'; return; }
+    render(await resp.json());
+  }catch(e){}
+}
+
+$('btn-pause').onclick = () => action(window._paused ? 'resume' : 'pause');
+$('btn-skip').onclick = () => action('skip');
+$('btn-clear').onclick = () => { if (confirm('清空所有待播点歌？')) action('clear'); };
+$('btn-refresh').onclick = () => action('refresh');
+$('sb-toggle').onclick = () => action($('sb-toggle').dataset.on === '1' ? 'songbot-stop' : 'songbot-start');
+$('sb-restart').onclick = () => action('songbot-restart');
+$('enq-go').onclick = enqueue;
+$('enq-song').addEventListener('keydown', e => { if (e.key === 'Enter') enqueue(); });
+$('set-save').onclick = () => action('settings', '', {
+  cooldown_seconds: Number($('set-cooldown').value),
+  max_pending_per_user: Number($('set-max').value),
+  duplicate_window_seconds: Number($('set-dup').value) * 60,
+  expire_seconds: Number($('set-exp').value) * 60
+});
+
+const _render = render;
+window.render = s => { window._paused = s.paused; _render(s); };
+render = window.render;
+
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>
